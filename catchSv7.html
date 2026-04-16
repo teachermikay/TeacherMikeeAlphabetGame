@@ -1,0 +1,419 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snake Pals: The Great Letter Hunt!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Coiny&family=Jua&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --team-a-color: #FFD1DC;
+            --team-b-color: #C1E1C1;
+            --btn-gradient: linear-gradient(180deg, #FF69B4 0%, #FF1493 100%);
+            --shadow: 0 6px 0 rgba(0,0,0,0.2);
+            --font-main: 'Jua', sans-serif;
+            --font-heading: 'Coiny', cursive;
+        }
+
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            touch-action: none; 
+            user-select: none;
+        }
+        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: var(--font-main); background: #f0f0f0; }
+
+        .screen { position: absolute; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        #start-screen { display: flex; background: url('start_menu_img.jpg') center/cover, #a2d2ff; }
+        #game-screen { display: none; background: #fff; flex-direction: column; }
+
+        .game-title { font-family: var(--font-heading); font-size: 5rem; display: flex; gap: 10px; margin-bottom: 50px; }
+        .game-title span { 
+            color: white; -webkit-text-stroke: 3px black; text-shadow: 4px 4px 0px rgba(0,0,0,0.3); 
+            display: inline-block; animation: titleBounce 2s infinite ease-in-out; 
+        }
+        @keyframes titleBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+
+        .btn {
+            padding: 15px 40px; border-radius: 50px; border: 4px dashed white;
+            background: var(--btn-gradient); color: white; font-family: var(--font-heading);
+            font-size: 1.5rem; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: var(--shadow); text-transform: uppercase; margin: 10px;
+            display: inline-block;
+        }
+        .btn:active { transform: scale(0.9) translateY(4px); box-shadow: none; }
+
+        #modal-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7);
+            display: none; justify-content: center; align-items: center; z-index: 3000;
+        }
+        .modal {
+            background: white; padding: 20px; border-radius: 30px; width: 95%; height: 90%;
+            display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+        }
+        .sections-container { display: flex; gap: 20px; flex-grow: 1; overflow: hidden; }
+        .modal-section { flex: 1; display: flex; flex-direction: column; background: #fdfdfd; border: 2px solid #ddd; border-radius: 20px; padding: 10px; }
+        .modal-section h3 { font-family: var(--font-heading); text-align: center; margin: 5px; color: #333; }
+        .letter-grid-scroll { flex-grow: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding-right: 5px; }
+        .col-header { font-family: var(--font-heading); font-size: 0.9rem; text-align: center; color: #FF1493; margin-bottom: 5px; }
+        .letter-list { display: flex; flex-direction: column; gap: 5px; }
+        .letter-item { display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 5px 10px; border-radius: 10px; border: 1px solid #eee; }
+        .letter-label { font-size: 1.4rem; font-weight: bold; min-width: 25px; }
+        .controls-group { display: flex; align-items: center; gap: 8px; }
+        .qty-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: #4cc9f0; color: white; font-weight: bold; cursor: pointer; }
+        .qty-val { font-weight: bold; min-width: 20px; text-align: center; }
+
+        .header-bar {
+            width: 100%; height: 100px; background: #333; display: flex; align-items: center;
+            justify-content: space-around; z-index: 100; font-family: var(--font-heading); color: white;
+            padding: 0 20px; flex-shrink: 0;
+        }
+        .timer-display { font-size: 3rem; min-width: 120px; text-align: center; color: #ffeb3b; }
+
+        /* Challenge Mode Indicator */
+        #challenge-msg {
+            position: fixed; top: 120px; left: 50%; transform: translateX(-50%);
+            font-family: var(--font-heading); font-size: 3rem; color: #ff1493;
+            -webkit-text-stroke: 1.5px white; text-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+            z-index: 200; pointer-events: none; opacity: 0; transition: opacity 0.5s;
+        }
+
+        .game-world { display: flex; width: 100%; flex-grow: 1; position: relative; overflow: hidden; background: #000; }
+        .team-side { flex: 1; height: 100%; position: relative; transition: background 0.3s; overflow: hidden; }
+        .team-a { background: var(--team-a-color); }
+        .team-b { background: var(--team-b-color); }
+        .team-side.flash-red { background: #ff4d4d !important; }
+
+        .score-box { 
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+            font-size: 4rem; font-family: var(--font-heading); -webkit-text-stroke: 2px #000; 
+            z-index: 5; pointer-events: none;
+        }
+
+        .baskets-container { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-around; pointer-events: none; }
+        .basket { width: 220px; height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: auto; position: relative; }
+        .basket img { width: 100%; height: 100%; object-fit: contain; }
+
+        .letter {
+            position: absolute; font-size: 5rem; font-weight: bold; cursor: grab;
+            z-index: 50; font-family: var(--font-heading);
+            text-shadow: 4px 4px 0 white; -webkit-text-stroke: 2px black;
+            transition: opacity 0.4s ease-out; will-change: transform, top, left;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .letter.fade-out { opacity: 0; transform: scale(0.5); pointer-events: none; }
+        
+        .star { position: absolute; pointer-events: none; font-size: 4rem; animation: starOut 0.8s forwards; z-index: 200; }
+        @keyframes starOut { 0% { transform: scale(0); opacity: 1; } 100% { transform: translateY(-120px) scale(2); opacity: 0; } }
+        
+        #results-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; color: white; text-align: center; backdrop-filter: blur(5px); }
+        #winner-text { font-family: var(--font-heading); font-size: 8rem; color: #fff; -webkit-text-stroke: 4px #000; margin-bottom: 30px; }
+        #confetti-canvas { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 2001; }
+        #countdown-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 500; font-family: var(--font-heading); font-size: 12rem; color: #ff1493; }
+    </style>
+</head>
+<body>
+
+    <audio id="bg-music" src="bg_music.mp3" loop></audio>
+
+    <div id="start-screen" class="screen">
+        <div class="game-title" id="animated-title"></div>
+        <button class="btn" onclick="showGame()">Let's Play</button>
+        <button class="btn" style="background: #4cc9f0" onclick="toggleModal(true)">Input Letters</button>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal">
+            <h2 style="text-align: center; font-family: var(--font-heading); margin:0;">Letter Configuration</h2>
+            <div class="sections-container">
+                <div class="modal-section">
+                    <h3>TARGET LETTERS</h3>
+                    <div class="letter-grid-scroll">
+                        <div><div class="col-header">BIG (A-Z)</div><div class="letter-list" id="target-upper"></div></div>
+                        <div><div class="col-header">small (a-z)</div><div class="letter-list" id="target-lower"></div></div>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <h3>DISTRACTIONS</h3>
+                    <div class="letter-grid-scroll">
+                        <div><div class="col-header">BIG (A-Z)</div><div class="letter-list" id="dist-upper"></div></div>
+                        <div><div class="col-header">small (a-z)</div><div class="letter-list" id="dist-lower"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; display: flex; justify-content: center; gap: 20px; padding-top: 5px;">
+                <button class="btn" style="background: #6c757d; font-size: 1.2rem; padding: 10px 30px;" onclick="resetSelections()">Reset All</button>
+                <button class="btn" style="padding: 10px 30px;" onclick="saveSettings()">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div id="challenge-msg">HURRY UP! ⚡</div>
+        <div class="header-bar">
+            <button class="btn" style="font-size: 1.2rem; background: #ff4757" onclick="backToMenu()">Main Menu</button>
+            <button class="btn" style="font-size: 1.2rem;" onclick="startGame()">Start Game</button>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="btn" style="padding: 5px 20px;" onclick="adjustTime(-10)">-</button>
+                <div class="timer-display" id="timer-text">01:00</div>
+                <button class="btn" style="padding: 5px 20px;" onclick="adjustTime(10)">+</button>
+            </div>
+            <button class="btn" style="font-size: 1.2rem; background: #6c757d" onclick="resetGame()">Reset</button>
+            <button class="btn" id="audio-toggle" style="font-size: 1.2rem; background: #ff9f43" onclick="toggleAudio()">Music: OFF</button>
+        </div>
+
+        <div class="game-world" id="game-world">
+            <div class="team-side team-a" id="side-A">
+                <div class="score-box" id="score-A">0</div>
+                <div class="baskets-container">
+                    <div class="basket" data-type="upper"><img src="big.png" alt="BIG Basket"></div>
+                    <div class="basket" data-type="lower"><img src="small.png" alt="small Basket"></div>
+                </div>
+            </div>
+            <div class="team-side team-b" id="side-B">
+                <div class="score-box" id="score-B">0</div>
+                <div class="baskets-container">
+                    <div class="basket" data-type="upper"><img src="big.png" alt="BIG Basket"></div>
+                    <div class="basket" data-type="lower"><img src="small.png" alt="small Basket"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="results-overlay">
+        <canvas id="confetti-canvas"></canvas>
+        <h2 id="winner-text">TEAM A WINS!</h2>
+        <button class="btn" style="font-size: 2.5rem; z-index: 2002;" onclick="resetGame(); startGame();">Play Again</button>
+        <button class="btn" style="font-size: 1.5rem; background: #6c757d; z-index: 2002;" onclick="backToMenu()">Home Menu</button>
+    </div>
+
+    <div id="countdown-overlay">3</div>
+
+    <script>
+        const lettersUpper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+        const lettersLower = "abcdefghijklmnopqrstuvwxyz".split("");
+        let settings = { targetLetters: {}, distractionLetters: [] };
+        let gameState = { time: 60, scoreA: 0, scoreB: 0, isPlaying: false, audioEnabled: false, challengeMode: false };
+        let spawnInterval, timerInterval;
+        const bgMusic = document.getElementById('bg-music');
+        bgMusic.volume = 0.4;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        window.onload = () => { renderTitle(); generateInputs(); loadCaching(); };
+
+        function generateInputs() {
+            const tUp = document.getElementById('target-upper'), tLow = document.getElementById('target-lower'), dUp = document.getElementById('dist-upper'), dLow = document.getElementById('dist-lower');
+            lettersUpper.forEach(l => { tUp.appendChild(createLetterItem(l, true)); dUp.appendChild(createLetterItem(l, false)); });
+            lettersLower.forEach(l => { tLow.appendChild(createLetterItem(l, true)); dLow.appendChild(createLetterItem(l, false)); });
+        }
+
+        function createLetterItem(char, isTarget) {
+            const div = document.createElement('div');
+            div.className = 'letter-item';
+            let html = `<div style="display:flex; align-items:center; gap:5px;"><input type="checkbox" class="${isTarget ? 't-chk' : 'd-chk'}" data-char="${char}"><span class="letter-label">${char}</span></div>`;
+            if (isTarget) { html += `<div class="controls-group"><button class="qty-btn" onclick="updateQty('${char}', -1)">-</button><span class="qty-val" id="qty-${char}">1</span><button class="qty-btn" onclick="updateQty('${char}', 1)">+</button></div>`; }
+            div.innerHTML = html;
+            return div;
+        }
+
+        function updateQty(char, delta) {
+            const valEl = document.getElementById(`qty-${char}`);
+            let val = parseInt(valEl.innerText) + delta;
+            if (val < 0) val = 0;
+            valEl.innerText = val;
+            const chk = document.querySelector(`.t-chk[data-char="${char}"]`);
+            chk.checked = val > 0;
+        }
+
+        function saveSettings() {
+            settings.targetLetters = {}; settings.distractionLetters = [];
+            document.querySelectorAll('.t-chk:checked').forEach(chk => { const char = chk.dataset.char; const qty = parseInt(document.getElementById(`qty-${char}`).innerText); if (qty > 0) settings.targetLetters[char] = qty; });
+            document.querySelectorAll('.d-chk:checked').forEach(chk => { settings.distractionLetters.push(chk.dataset.char); });
+            localStorage.setItem('snakePalsConfig', JSON.stringify(settings));
+            toggleModal(false); sounds.click();
+        }
+
+        function loadCaching() {
+            const saved = localStorage.getItem('snakePalsConfig');
+            if (saved) {
+                settings = JSON.parse(saved);
+                for (let char in settings.targetLetters) {
+                    const chk = document.querySelector(`.t-chk[data-char="${char}"]`);
+                    const qtyEl = document.getElementById(`qty-${char}`);
+                    if (chk) chk.checked = true;
+                    if (qtyEl) qtyEl.innerText = settings.targetLetters[char];
+                }
+                settings.distractionLetters.forEach(char => {
+                    const chk = document.querySelector(`.d-chk[data-char="${char}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
+        }
+
+        function resetSelections() {
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            document.querySelectorAll('.qty-val').forEach(v => v.innerText = '1');
+            settings.targetLetters = {}; settings.distractionLetters = [];
+            localStorage.removeItem('snakePalsConfig');
+        }
+
+        // --- GAME LOGIC ---
+
+        function spawnFairPair() {
+            let targetPool = [];
+            for (let char in settings.targetLetters) { for (let i = 0; i < settings.targetLetters[char]; i++) { targetPool.push(char); } }
+            const distPool = settings.distractionLetters;
+            let char;
+            if (targetPool.length > 0 && (Math.random() < 0.7 || distPool.length === 0)) char = targetPool[Math.floor(Math.random() * targetPool.length)];
+            else if (distPool.length > 0) char = distPool[Math.floor(Math.random() * distPool.length)];
+            else return;
+            createLetter('side-A', char); createLetter('side-B', char);
+        }
+
+        function activateChallengeMode() {
+            if (gameState.challengeMode) return;
+            gameState.challengeMode = true;
+            
+            // Visual cue
+            const msg = document.getElementById('challenge-msg');
+            msg.style.opacity = '1';
+            setTimeout(() => { msg.style.opacity = '0'; }, 3000);
+            
+            // Audio cue (increase music pitch/intensity if supported, or play alert)
+            playSfx(1000, 'sine', 0.5); 
+            
+            // Increase spawning speed
+            clearInterval(spawnInterval);
+            spawnFairPair();
+            spawnInterval = setInterval(spawnFairPair, 1000); // Accelerated to 1 second
+        }
+
+        function createLetter(containerId, char) {
+            if (!gameState.isPlaying) return;
+            const el = document.createElement('div');
+            el.className = 'letter'; el.textContent = char;
+            el.style.color = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#FF3385'][Math.floor(Math.random() * 5)];
+            const container = document.getElementById(containerId);
+            const x = Math.random() * (container.clientWidth - 100);
+            el.style.left = x + 'px'; el.style.top = '10px';
+            setupDrag(el, containerId); container.appendChild(el);
+            let posY = 10;
+            const speed = 1.2 + Math.random() * 1.5;
+            function fall() {
+                if (!el.parentElement || el.dataset.dragging === "true") return;
+                posY += speed; el.style.top = posY + 'px';
+                if (posY > container.clientHeight) el.remove();
+                else requestAnimationFrame(fall);
+            }
+            requestAnimationFrame(fall);
+        }
+
+        function setupDrag(el, containerId) {
+            let pointerId = null; let startX, startY;
+            el.addEventListener('pointerdown', (e) => {
+                if (!gameState.isPlaying || pointerId !== null) return;
+                pointerId = e.pointerId; el.setPointerCapture(pointerId); el.dataset.dragging = "true";
+                const rect = el.getBoundingClientRect(); startX = e.clientX - rect.left; startY = e.clientY - rect.top;
+            });
+            el.addEventListener('pointermove', (e) => {
+                if (e.pointerId !== pointerId) return;
+                const container = document.getElementById(containerId); const rect = container.getBoundingClientRect();
+                el.style.left = (e.clientX - rect.left - startX) + 'px'; el.style.top = (e.clientY - rect.top - startY) + 'px';
+            });
+            el.addEventListener('pointerup', (e) => {
+                if (e.pointerId !== pointerId) return;
+                el.releasePointerCapture(pointerId); pointerId = null; el.dataset.dragging = "false";
+                checkCollision(el, containerId, e.clientX, e.clientY);
+            });
+        }
+
+        function checkCollision(el, containerId, x, y) {
+            const container = document.getElementById(containerId);
+            const baskets = container.querySelectorAll('.basket');
+            let dropped = false;
+            baskets.forEach(basket => {
+                const rect = basket.getBoundingClientRect();
+                if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) { validateDrop(el, basket, containerId); dropped = true; }
+            });
+            if (!dropped) {
+                const rect = el.getBoundingClientRect(); const containerRect = container.getBoundingClientRect();
+                let currentY = rect.top - containerRect.top;
+                function resume() { if (!el.parentElement || el.dataset.dragging === "true") return; currentY += 2; el.style.top = currentY + 'px'; if (currentY > container.clientHeight) el.remove(); else requestAnimationFrame(resume); }
+                resume();
+            }
+        }
+
+        function validateDrop(el, basket, sideId) {
+            const char = el.textContent;
+            const isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
+            const basketType = basket.dataset.type;
+            const isTarget = settings.targetLetters.hasOwnProperty(char);
+            const side = sideId === 'side-A' ? 'A' : 'B';
+            const isCorrect = isTarget && ((isUpper && basketType === 'upper') || (!isUpper && basketType === 'lower'));
+            if (isCorrect) {
+                sounds.correct();
+                if (side === 'A') gameState.scoreA += 10; else gameState.scoreB += 10;
+                document.getElementById(`score-${side}`).textContent = side === 'A' ? gameState.scoreA : gameState.scoreB;
+                const star = document.createElement('div'); star.className = 'star'; star.textContent = '⭐';
+                const rect = el.getBoundingClientRect(); star.style.left = rect.left + 'px'; star.style.top = rect.top + 'px';
+                document.body.appendChild(star); el.classList.add('fade-out');
+                setTimeout(() => { el.remove(); star.remove(); }, 500);
+            } else {
+                sounds.wrong();
+                document.getElementById(sideId).classList.add('flash-red');
+                setTimeout(() => document.getElementById(sideId).classList.remove('flash-red'), 1000);
+                el.classList.add('fade-out'); setTimeout(() => el.remove(), 400);
+            }
+        }
+
+        function renderTitle() { const container = document.getElementById('animated-title'); "SNAKE PALS".split('').forEach((c, i) => { const s = document.createElement('span'); s.textContent = c; s.style.color = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#FF3385'][i % 5]; s.style.animationDelay = (i * 0.1) + 's'; container.appendChild(s); }); }
+        function toggleModal(show) { sounds.click(); document.getElementById('modal-overlay').style.display = show ? 'flex' : 'none'; }
+        function showGame() { sounds.click(); document.getElementById('start-screen').style.display = 'none'; document.getElementById('game-screen').style.display = 'flex'; }
+        function backToMenu() { resetGame(); document.getElementById('results-overlay').style.display = 'none'; document.getElementById('game-screen').style.display = 'none'; document.getElementById('start-screen').style.display = 'flex'; }
+        function adjustTime(val) { if (!gameState.isPlaying) { gameState.time = Math.max(10, gameState.time + val); updateTimerUI(); sounds.click(); } }
+        function updateTimerUI() { const m = Math.floor(gameState.time / 60); const s = gameState.time % 60; document.getElementById('timer-text').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
+        function toggleAudio() { gameState.audioEnabled = !gameState.audioEnabled; document.getElementById('audio-toggle').textContent = `Music: ${gameState.audioEnabled ? 'ON' : 'OFF'}`; if (gameState.audioEnabled && gameState.isPlaying) bgMusic.play(); else bgMusic.pause(); }
+
+        const sounds = {
+            click: () => playSfx(400, 'sine', 0.1),
+            correct: () => playSfx(800, 'sine', 0.3),
+            wrong: () => playSfx(150, 'square', 0.4),
+            fanfare: () => { playSfx(523, 'triangle', 0.2); setTimeout(()=>playSfx(659, 'triangle', 0.2), 150); setTimeout(()=>playSfx(783, 'triangle', 0.4), 300); }
+        };
+
+        function playSfx(freq, type, dur) { if (!gameState.audioEnabled && freq !== 400) return; const osc = audioCtx.createOscillator(); const g = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur); osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
+
+        function startGame() { if (gameState.isPlaying) return; sounds.click(); let count = 3; const overlay = document.getElementById('countdown-overlay'); overlay.style.display = 'flex'; overlay.textContent = count; const cd = setInterval(() => { count--; if (count > 0) overlay.textContent = count; else if (count === 0) overlay.textContent = "GO!"; else { clearInterval(cd); overlay.style.display = 'none'; beginGameplay(); } }, 1000); }
+
+        function beginGameplay() {
+            gameState.isPlaying = true; gameState.challengeMode = false;
+            if(gameState.audioEnabled) bgMusic.play();
+            spawnFairPair();
+            spawnInterval = setInterval(spawnFairPair, 3000);
+            timerInterval = setInterval(() => {
+                gameState.time--; updateTimerUI();
+                if (gameState.time === 20) activateChallengeMode();
+                if (gameState.time <= 0) endGame();
+            }, 1000);
+        }
+
+        function resetGame() { clearInterval(spawnInterval); clearInterval(timerInterval); bgMusic.pause(); bgMusic.currentTime = 0; gameState.isPlaying = false; gameState.challengeMode = false; gameState.scoreA = 0; gameState.scoreB = 0; gameState.time = 60; document.getElementById('score-A').textContent = '0'; document.getElementById('score-B').textContent = '0'; document.getElementById('challenge-msg').style.opacity = '0'; document.querySelectorAll('.letter').forEach(l => l.remove()); updateTimerUI(); document.getElementById('results-overlay').style.display = 'none'; }
+
+        function endGame() { clearInterval(spawnInterval); clearInterval(timerInterval); bgMusic.pause(); gameState.isPlaying = false; const winTxt = document.getElementById('winner-text'); if (gameState.scoreA > gameState.scoreB) winTxt.textContent = "TEAM A WINS! 🏆"; else if (gameState.scoreB > gameState.scoreA) winTxt.textContent = "TEAM B WINS! 🏆"; else winTxt.textContent = "IT'S A TIE! 🤝"; document.getElementById('results-overlay').style.display = 'flex'; sounds.fanfare(); startConfetti(); }
+
+        function startConfetti() {
+            const canvas = document.getElementById('confetti-canvas'); const ctx = canvas.getContext('2d'); canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            let particles = []; const colors = ['#FFC0CB', '#FF69B4', '#FFD700', '#00FF7F', '#1E90FF'];
+            for (let i = 0; i < 150; i++) { particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height, r: Math.random() * 6 + 4, d: Math.random() * 10, color: colors[Math.floor(Math.random() * colors.length)], tilt: Math.random() * 10 - 10, tiltAngleIncremental: Math.random() * 0.07 + 0.05, tiltAngle: 0 }); }
+            function update() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, i) => { p.tiltAngle += p.tiltAngleIncremental; p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2; p.x += Math.sin(p.d); ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color; ctx.moveTo(p.x + p.tilt + p.r / 2, p.y); ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2); ctx.stroke(); if (p.y > canvas.height) particles[i].y = -20; });
+                if (document.getElementById('results-overlay').style.display === 'flex') requestAnimationFrame(update);
+            }
+            update();
+        }
+    </script>
+</body>
+</html>
